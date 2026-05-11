@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCNA Network Topology Analyzer — Sazzad Ibna Mahfuz</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--cyan:#00FFD1;--purple:#7B61FF;--amber:#F59E0B;--red:#EF4444;--blue:#3B82F6;--bg:#07090D;--bg2:#0D1117;--bg3:#161B22;--border:rgba(0,255,209,0.12);--text:#E6EDF3;--muted:#7D8590}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column}
+header{background:rgba(13,17,23,.95);border-bottom:0.5px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;z-index:10;backdrop-filter:blur(12px);flex-shrink:0}
+.logo{font-family:'Orbitron',monospace;font-size:.9rem;color:var(--blue)}
+.back{color:var(--muted);text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:.75rem;transition:color .2s}.back:hover{color:var(--cyan)}
+
+.app{display:grid;grid-template-columns:1fr 300px;flex:1;min-height:0;height:calc(100vh - 60px)}
+@media(max-width:800px){.app{grid-template-columns:1fr}}
+
+/* CANVAS */
+.canvas-wrap{position:relative;background:var(--bg2);overflow:hidden}
+#netCanvas{display:block;width:100%;height:100%;cursor:default}
+.canvas-info{position:absolute;top:1rem;left:1rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:rgba(0,255,209,.6)}
+.toast{position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);background:rgba(13,17,23,.95);border:0.5px solid var(--border);border-radius:8px;padding:.5rem 1.2rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--cyan);white-space:nowrap;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* TOOLBAR */
+.toolbar{position:absolute;top:1rem;right:1rem;display:flex;gap:.4rem;flex-direction:column}
+.tool-btn{width:36px;height:36px;border:0.5px solid var(--border);border-radius:6px;background:rgba(13,17,23,.8);color:var(--muted);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(8px)}
+.tool-btn:hover,.tool-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,209,.08)}
+.tool-btn.danger:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.08)}
+
+/* SIDE PANEL */
+.panel{background:var(--bg3);border-left:0.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.panel-tabs{display:flex;border-bottom:0.5px solid var(--border)}
+.tab{flex:1;padding:.65rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;text-align:center;cursor:pointer;color:var(--muted);transition:all .2s;border:none;background:transparent;text-transform:uppercase;letter-spacing:.06em}
+.tab.active{color:var(--cyan);border-bottom:1.5px solid var(--cyan)}
+.panel-body{flex:1;overflow-y:auto;padding:1rem}
+.panel-body::-webkit-scrollbar{width:3px}.panel-body::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* ADD NODE */
+.node-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem}
+.node-type-btn{padding:.6rem;border:0.5px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.68rem;cursor:pointer;transition:all .2s;text-align:center}
+.node-type-btn.selected{border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,209,.07)}
+.node-type-btn:hover{border-color:var(--cyan)}
+.add-btn{width:100%;padding:.55rem;border:0.5px solid rgba(0,255,209,.3);border-radius:6px;background:rgba(0,255,209,.06);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:.72rem;cursor:pointer;transition:all .2s;margin-bottom:.5rem}
+.add-btn:hover{background:rgba(0,255,209,.15)}
+.ping-btn{width:100%;padding:.55rem;border:0.5px solid rgba(59,130,246,.3);border-radius:6px;background:rgba(59,130,246,.06);color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:.72rem;cursor:pointer;transition:all .2s;margin-bottom:.5rem}
+.ping-btn:hover{background:rgba(59,130,246,.15)}
+.dijkstra-btn{width:100%;padding:.55rem;border:0.5px solid rgba(245,158,11,.3);border-radius:6px;background:rgba(245,158,11,.06);color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:.72rem;cursor:pointer;transition:all .2s;margin-bottom:.5rem}
+.dijkstra-btn:hover{background:rgba(245,158,11,.15)}
+
+/* INFO SECTIONS */
+.info-section{margin-bottom:1rem}
+.info-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--cyan);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem}
+.info-row{display:flex;justify-content:space-between;padding:.3rem 0;border-bottom:0.5px solid rgba(255,255,255,.04);font-size:.78rem}
+.info-key{color:var(--muted)}
+.info-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.75rem}
+
+/* ROUTING TABLE */
+.routing-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.routing-table th{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);text-transform:uppercase;padding:.3rem .4rem;text-align:left;border-bottom:0.5px solid var(--border)}
+.routing-table td{padding:.35rem .4rem;border-bottom:0.5px solid rgba(255,255,255,.04);font-family:'JetBrains Mono',monospace;color:var(--text)}
+
+/* NODE LIST */
+.node-list-item{display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;cursor:pointer;transition:background .15s;margin-bottom:.2rem;font-size:.78rem}
+.node-list-item:hover{background:rgba(255,255,255,.04)}
+.node-list-item.selected{background:rgba(0,255,209,.07)}
+.node-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+.section-hd{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 .5rem;padding-bottom:.3rem;border-bottom:0.5px solid var(--border)}
+.select-hint{font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.6}
+.link-mode-hint{display:none;font-size:.7rem;color:var(--amber);font-family:'JetBrains Mono',monospace;padding:.4rem;border:0.5px solid rgba(245,158,11,.2);border-radius:4px;background:rgba(245,158,11,.05);margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NET ANALYZER</div>
+  <span style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted)">drag nodes · click to select · add links</span>
+  <a href="../../index.html" class="back">← Portfolio</a>
+</header>
+
+<div class="app">
+  <div class="canvas-wrap">
+    <canvas id="netCanvas"></canvas>
+    <div class="canvas-info" id="canvasInfo">Nodes: 0 · Links: 0</div>
+    <div class="toolbar">
+      <button class="tool-btn" title="Add node (use panel)" onclick="showTab('add')">＋</button>
+      <button class="tool-btn" id="linkModeBtn" title="Link mode: click two nodes" onclick="toggleLinkMode()">🔗</button>
+      <button class="tool-btn" title="Delete selected" onclick="deleteSelected()">🗑</button>
+      <button class="tool-btn" title="Fit all" onclick="fitAll()">⊞</button>
+      <button class="tool-btn" title="Reset to default" onclick="resetDefault()">↺</button>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="tab active" id="tab-add" onclick="showTab('add')">Add</button>
+      <button class="tab" id="tab-info" onclick="showTab('info')">Info</button>
+      <button class="tab" id="tab-route" onclick="showTab('route')">Route</button>
+      <button class="tab" id="tab-nodes" onclick="showTab('nodes')">Nodes</button>
+    </div>
+
+    <!-- ADD TAB -->
+    <div class="panel-body" id="pane-add">
+      <div class="section-hd">Node type</div>
+      <div class="node-type-grid">
+        <button class="node-type-btn selected" id="nt-router"   onclick="selNodeType('router')">🔷 Router</button>
+        <button class="node-type-btn"          id="nt-switch"   onclick="selNodeType('switch')">🔶 Switch</button>
+        <button class="node-type-btn"          id="nt-pc"       onclick="selNodeType('pc')">💻 Host PC</button>
+        <button class="node-type-btn"          id="nt-server"   onclick="selNodeType('server')">🖥 Server</button>
+      </div>
+      <button class="add-btn" onclick="addNode()">＋ Add to canvas</button>
+      <div class="link-mode-hint" id="linkHint">🔗 Link mode ON — click two nodes to connect</div>
+      <div class="section-hd" style="margin-top:1rem">Tools</div>
+      <button class="ping-btn" onclick="runPing()">📡 Simulate Ping</button>
+      <button class="dijkstra-btn" onclick="runDijkstra()">🗺 Shortest Path (Dijkstra)</button>
+      <div class="section-hd" style="margin-top:1rem">Help</div>
+      <div class="select-hint">
+        • Click a node to select it<br>
+        • Drag nodes to reposition<br>
+        • Use 🔗 link mode to connect<br>
+        • 📡 Ping animates a packet<br>
+        • 🗺 Dijkstra highlights shortest path
+      </div>
+    </div>
+
+    <!-- INFO TAB -->
+    <div class="panel-body" id="pane-info" style="display:none">
+      <div id="info-content">
+        <div class="select-hint">Select a node on the canvas to see its details.</div>
+      </div>
+    </div>
+
+    <!-- ROUTE TAB -->
+    <div class="panel-body" id="pane-route" style="display:none">
+      <div class="section-hd">Routing table</div>
+      <div id="route-content">
+        <div class="select-hint">Select a router or switch to view its routing table.</div>
+      </div>
+    </div>
+
+    <!-- NODES TAB -->
+    <div class="panel-body" id="pane-nodes" style="display:none">
+      <div class="section-hd">All devices</div>
+      <div id="node-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('netCanvas');
+const ctx=canvas.getContext('2d');
+let W,H;
+let nodes=[],links=[],nextId=1;
+let selectedNode=null,hoveredNode=null;
+let dragging=null,dragOX=0,dragOY=0;
+let linkMode=false,linkFirst=null;
+let pingAnim=null,pathAnim=null;
+let selNodeTypeVal='router';
+const typeColors={router:'#7B61FF',switch:'#3B82F6',pc:'#00FFD1',server:'#F59E0B'};
+const typeIcons={router:'R',switch:'SW',pc:'PC',server:'SRV'};
+const typeIPPfx={router:'192.168.',switch:'10.0.',pc:'172.16.',server:'10.10.'};
+
+function resize(){
+  const wrap=canvas.parentElement;
+  W=canvas.width=wrap.clientWidth;
+  H=canvas.height=wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize',resize);
+
+// ── DEFAULT TOPOLOGY ──
+function resetDefault(){
+  nodes=[];links=[];nextId=1;pingAnim=null;pathAnim=null;
+  const cx=W?W/2:400,cy=H?H/2:300;
+  addNodeAt('router', cx, cy-120,  'R1',   '192.168.1.1');
+  addNodeAt('router', cx-160,cy+40,'R2',   '192.168.2.1');
+  addNodeAt('router', cx+160,cy+40,'R3',   '192.168.3.1');
+  addNodeAt('switch', cx-200,cy+160,'SW1', '10.0.1.1');
+  addNodeAt('switch', cx+200,cy+160,'SW2', '10.0.2.1');
+  addNodeAt('pc',     cx-280,cy+270,'PC1', '172.16.1.10');
+  addNodeAt('pc',     cx-130,cy+270,'PC2', '172.16.1.11');
+  addNodeAt('pc',     cx+130,cy+270,'PC3', '172.16.2.10');
+  addNodeAt('pc',     cx+280,cy+270,'PC4', '172.16.2.11');
+  addLink(0,1);addLink(0,2);addLink(1,3);addLink(2,4);addLink(3,5);addLink(3,6);addLink(4,7);addLink(4,8);
+  draw();renderNodeList();toast('Default topology loaded');
+}
+
+function addNodeAt(type,x,y,label,ip){
+  nodes.push({id:nextId++,type,x,y,label:label||typeIcons[type]+nextId,ip:ip||typeIPPfx[type]+nextId+'.'+nextId,mac:randomMac(),subnet:'255.255.255.0',gateway:'192.168.0.1'});
+}
+function addLink(a,b){links.push({a:nodes[a].id,b:nodes[b].id,bw:1,cost:Math.floor(1+Math.random()*5)})}
+function randomMac(){return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':')}
+
+// ── DRAW ──
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0D1117';ctx.fillRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(0,255,209,0.03)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  // links
+  links.forEach(l=>{
+    const a=nodes.find(n=>n.id===l.a),b=nodes.find(n=>n.id===l.b);
+    if(!a||!b)return;
+    const onPath=pathAnim&&pathAnim.edges.some(e=>(e[0]===l.a&&e[1]===l.b)||(e[0]===l.b&&e[1]===l.a));
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle=onPath?'rgba(245,158,11,.9)':'rgba(100,130,180,.25)';
+    ctx.lineWidth=onPath?2.5:1.5;ctx.stroke();
+    // cost label
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    ctx.fillStyle='rgba(125,133,144,.6)';ctx.font='9px JetBrains Mono,monospace';ctx.textAlign='center';
+    ctx.fillText('c'+l.cost,mx,my-5);
+  });
+
+  // ping packet
+  if(pingAnim){
+    const {x,y,trail}=pingAnim;
+    trail.forEach((p,i)=>{
+      ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);
+      ctx.fillStyle=`rgba(0,255,209,${(i/trail.length)*.5})`;ctx.fill();
+    });
+    ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);
+    ctx.fillStyle='#00FFD1';ctx.fill();
+    ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,255,209,.4)';ctx.lineWidth=1;ctx.stroke();
+  }
+
+  // nodes
+  nodes.forEach(n=>{
+    const sel=selectedNode&&selectedNode.id===n.id;
+    const hov=hoveredNode&&hoveredNode.id===n.id;
+    const r=n.type==='router'?18:n.type==='switch'?15:n.type==='server'?16:12;
+    // glow
+    if(sel||hov){
+      const g=ctx.createRadialGradient(n.x,n.y,r,n.x,n.y,r+14);
+      g.addColorStop(0,typeColors[n.type]+'44');g.addColorStop(1,'transparent');
+      ctx.beginPath();ctx.arc(n.x,n.y,r+14,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    }
+    // shape
+    ctx.beginPath();
+    if(n.type==='router'){ctx.arc(n.x,n.y,r,0,Math.PI*2)}
+    else if(n.type==='switch'){roundRect(ctx,n.x-r,n.y-r,r*2,r*2,5)}
+    else if(n.type==='server'){roundRect(ctx,n.x-r*.8,n.y-r,r*1.6,r*2,4)}
+    else{ctx.arc(n.x,n.y,r,0,Math.PI*2)}
+    ctx.fillStyle=typeColors[n.type]+'22';ctx.fill();
+    ctx.strokeStyle=sel?'#fff':typeColors[n.type];ctx.lineWidth=sel?2:1.5;ctx.stroke();
+    // icon
+    ctx.fillStyle='#fff';ctx.font=`bold ${n.type==='switch'?9:10}px JetBrains Mono,monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(typeIcons[n.type],n.x,n.y);
+    // label
+    ctx.fillStyle=typeColors[n.type];ctx.font='10px JetBrains Mono,monospace';ctx.textBaseline='alphabetic';
+    ctx.fillText(n.label,n.x,n.y+r+13);
+    ctx.fillStyle='rgba(125,133,144,.6)';ctx.font='9px JetBrains Mono,monospace';
+    ctx.fillText(n.ip,n.x,n.y+r+23);
+  });
+
+  // link mode first node
+  if(linkMode&&linkFirst){
+    ctx.beginPath();ctx.arc(linkFirst.x,linkFirst.y,25,0,Math.PI*2);
+    ctx.strokeStyle='rgba(245,158,11,.6)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+  }
+
+  document.getElementById('canvasInfo').textContent=`Nodes: ${nodes.length} · Links: ${links.length}`;
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+}
+
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+
+// ── INTERACTION ──
+function nodeAt(x,y){return nodes.slice().reverse().find(n=>{const r=n.type==='router'?20:17;return Math.hypot(n.x-x,n.y-y)<r});}
+canvas.addEventListener('mousedown',e=>{
+  const{x,y}=pt(e);const n=nodeAt(x,y);
+  if(linkMode){
+    if(n){
+      if(!linkFirst){linkFirst=n;toast('Now click the second node');}
+      else if(n.id!==linkFirst.id){
+        if(!links.find(l=>(l.a===linkFirst.id&&l.b===n.id)||(l.a===n.id&&l.b===linkFirst.id))){
+          links.push({a:linkFirst.id,b:n.id,bw:1,cost:Math.floor(1+Math.random()*5)});
+          toast(`Linked ${linkFirst.label} ↔ ${n.label}`);
+        }else toast('Link already exists');
+        linkFirst=null;
+      }
+    }
+    draw();return;
+  }
+  if(n){dragging=n;dragOX=x-n.x;dragOY=y-n.y;selectedNode=n;renderInfo();showTab('info');}
+  else{selectedNode=null;renderInfo();}
+  draw();
+});
+canvas.addEventListener('mousemove',e=>{
+  const{x,y}=pt(e);hoveredNode=nodeAt(x,y);
+  if(dragging){dragging.x=x-dragOX;dragging.y=y-dragOY;}
+  draw();
+});
+canvas.addEventListener('mouseup',()=>{dragging=null;renderNodeList();});
+function pt(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*(W/r.width),y:(e.clientY-r.top)*(H/r.height)};}
+
+// ── CONTROLS ──
+function selNodeType(t){selNodeTypeVal=t;['router','switch','pc','server'].forEach(k=>document.getElementById('nt-'+k).classList.toggle('selected',k===t));}
+function addNode(){
+  const cx=W/2+Math.random()*80-40,cy=H/2+Math.random()*80-40;
+  const t=selNodeTypeVal;const idx=nodes.length;
+  addNodeAt(t,cx,cy,typeIcons[t]+(idx+1));
+  toast(`Added ${t}: ${nodes[nodes.length-1].label}`);draw();renderNodeList();
+}
+function toggleLinkMode(){
+  linkMode=!linkMode;linkFirst=null;
+  document.getElementById('linkModeBtn').classList.toggle('active',linkMode);
+  document.getElementById('linkHint').style.display=linkMode?'block':'none';
+  toast(linkMode?'Link mode ON — click two nodes':'Link mode OFF');
+}
+function deleteSelected(){
+  if(!selectedNode){toast('Select a node first');return;}
+  links=links.filter(l=>l.a!==selectedNode.id&&l.b!==selectedNode.id);
+  const lbl=selectedNode.label;
+  nodes=nodes.filter(n=>n.id!==selectedNode.id);selectedNode=null;
+  toast(`Deleted ${lbl}`);draw();renderInfo();renderNodeList();
+}
+function fitAll(){
+  if(!nodes.length)return;
+  const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const cx=(minX+maxX)/2,cy=(minY+maxY)/2;const ox=W/2-cx,oy=H/2-cy;
+  nodes.forEach(n=>{n.x+=ox;n.y+=oy;});draw();
+}
+
+// ── PING ──
+function runPing(){
+  if(nodes.length<2){toast('Need at least 2 nodes');return;}
+  const src=nodes[0],dst=nodes[nodes.length-1];
+  const path=buildPath(src,dst);
+  if(!path.length){toast('No path found');return;}
+  let seg=0,t=0;const trail=[];
+  function step(){
+    if(seg>=path.length-1){pingAnim=null;draw();toast(`Ping ${src.label} → ${dst.label}: reply OK`);return;}
+    const a=path[seg],b=path[seg+1];const frac=t;
+    const x=a.x+(b.x-a.x)*frac,y=a.y+(b.y-a.y)*frac;
+    trail.push({x,y});if(trail.length>12)trail.shift();
+    pingAnim={x,y,trail:[...trail]};
+    t+=0.03;if(t>=1){t=0;seg++;}
+    draw();requestAnimationFrame(step);
+  }
+  pingAnim={x:src.x,y:src.y,trail:[]};step();
+}
+
+// ── DIJKSTRA ──
+function runDijkstra(){
+  if(nodes.length<2){toast('Need at least 2 nodes');return;}
+  const src=nodes[0],dst=nodes[nodes.length-1];
+  const path=dijkstra(src,dst);
+  if(!path.length){toast('No path exists');return;}
+  const edges=[];for(let i=0;i<path.length-1;i++)edges.push([path[i].id,path[i+1].id]);
+  pathAnim={edges};
+  toast(`Shortest path: ${path.map(n=>n.label).join(' → ')} (${path.length-1} hops)`);
+  showTab('route');draw();
+}
+
+function dijkstra(src,dst){
+  const dist={},prev={};
+  nodes.forEach(n=>{dist[n.id]=Infinity;prev[n.id]=null});dist[src.id]=0;
+  const unvisited=new Set(nodes.map(n=>n.id));
+  while(unvisited.size){
+    let u=null;unvisited.forEach(id=>{if(u===null||dist[id]<dist[u])u=id});
+    if(u===null||dist[u]===Infinity)break;
+    unvisited.delete(u);
+    if(u===dst.id)break;
+    links.filter(l=>l.a===u||l.b===u).forEach(l=>{
+      const v=l.a===u?l.b:l.a;
+      if(!unvisited.has(v))return;
+      const alt=dist[u]+l.cost;
+      if(alt<dist[v]){dist[v]=alt;prev[v]=u;}
+    });
+  }
+  const path=[];let cur=dst.id;
+  while(cur){path.unshift(nodes.find(n=>n.id===cur));cur=prev[cur];}
+  return path[0]&&path[0].id===src.id?path:[];
+}
+
+function buildPath(src,dst){
+  return dijkstra(src,dst);
+}
+
+// ── INFO ──
+function renderInfo(){
+  const n=selectedNode;
+  document.getElementById('info-content').innerHTML=n?`
+    <div class="info-section">
+      <div class="info-label">${n.label} — ${n.type}</div>
+      <div class="info-row"><span class="info-key">IP Address</span><span class="info-val">${n.ip}</span></div>
+      <div class="info-row"><span class="info-key">MAC</span><span class="info-val" style="font-size:.68rem">${n.mac}</span></div>
+      <div class="info-row"><span class="info-key">Subnet</span><span class="info-val">${n.subnet}</span></div>
+      <div class="info-row"><span class="info-key">Gateway</span><span class="info-val">${n.gateway}</span></div>
+      <div class="info-row"><span class="info-key">Type</span><span class="info-val">${n.type.toUpperCase()}</span></div>
+      <div class="info-row"><span class="info-key">Connections</span><span class="info-val">${links.filter(l=>l.a===n.id||l.b===n.id).length}</span></div>
+    </div>`
+    :'<div class="select-hint">Select a node on the canvas.</div>';
+
+  // routing table
+  const nb=links.filter(l=>l.a===selectedNode?.id||l.b===selectedNode?.id).map(l=>{const pid=l.a===selectedNode?.id?l.b:l.a;return nodes.find(n=>n.id===pid);}).filter(Boolean);
+  document.getElementById('route-content').innerHTML=n&&nb.length?`
+    <table class="routing-table"><thead><tr><th>Dest</th><th>Next Hop</th><th>Cost</th><th>Iface</th></tr></thead>
+    <tbody>${nb.map((nb2,i)=>`<tr><td>${nb2.ip}/24</td><td>${nb2.ip}</td><td>${links.find(l=>(l.a===n.id&&l.b===nb2.id)||(l.b===n.id&&l.a===nb2.id))?.cost||1}</td><td>eth${i}</td></tr>`).join('')}</tbody></table>`
+    :'<div class="select-hint">Select a node to see routes.</div>';
+}
+
+function renderNodeList(){
+  document.getElementById('node-list').innerHTML=nodes.map(n=>`
+    <div class="node-list-item ${selectedNode?.id===n.id?'selected':''}" onclick="selectById(${n.id})">
+      <div class="node-dot" style="background:${typeColors[n.type]}"></div>
+      <div>
+        <div style="font-size:.8rem;color:var(--text)">${n.label}</div>
+        <div style="font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace">${n.ip}</div>
+      </div>
+      <div style="margin-left:auto;font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace">${n.type}</div>
+    </div>`).join('');
+}
+
+function selectById(id){selectedNode=nodes.find(n=>n.id===id)||null;renderInfo();showTab('info');draw();}
+
+function showTab(t){
+  ['add','info','route','nodes'].forEach(k=>{
+    document.getElementById('tab-'+k).classList.toggle('active',k===t);
+    document.getElementById('pane-'+k).style.display=k===t?'block':'none';
+  });
+}
+
+function toast(msg){
+  const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// INIT
+window.addEventListener('load',()=>{resize();resetDefault();});
+</script>
+</body>
+</html>
